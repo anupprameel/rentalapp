@@ -1,0 +1,170 @@
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+
+class Tool {
+    private final String toolCode;
+    private final String toolType;
+    private final String brand;
+    private final double dailyCharge;
+    private final boolean weekendCharge;
+    private final boolean holidayCharge;
+
+    public Tool(String toolCode, String toolType, String brand, double dailyCharge, boolean weekendCharge, boolean holidayCharge) {
+        this.toolCode = toolCode;
+        this.toolType = toolType;
+        this.brand = brand;
+        this.dailyCharge = dailyCharge;
+        this.weekendCharge = weekendCharge;
+        this.holidayCharge = holidayCharge;
+    }
+
+    public RentalAgreement checkout(int rentalDays, int discountPercent, LocalDate checkoutDate) throws IllegalArgumentException {
+        if (rentalDays < 1 || discountPercent < 0 || discountPercent > 100) {
+            throw new IllegalArgumentException("Invalid rental days or discount percent");
+        }
+
+        LocalDate dueDate = checkoutDate.plusDays(rentalDays);
+        int chargeDays = calculateChargeDays(checkoutDate, dueDate);
+        double preDiscountCharge = chargeDays * dailyCharge;
+        double discountAmount = preDiscountCharge * discountPercent / 100.0;
+        double finalCharge = preDiscountCharge - discountAmount;
+
+        return new RentalAgreement(toolCode, toolType, brand, rentalDays, checkoutDate, dueDate, dailyCharge, chargeDays, preDiscountCharge, discountPercent, discountAmount, finalCharge);
+    }
+
+    private int calculateChargeDays(LocalDate checkoutDate, LocalDate dueDate) {
+        int chargeDays = 0;
+        LocalDate date = checkoutDate.plusDays(1); // start from the day after checkout date
+        while (!date.isAfter(dueDate)) {
+            if (isChargeableDate(date)) {
+                chargeDays++;
+            }
+            date = date.plusDays(1);
+        }
+        return chargeDays;
+    }
+
+    private boolean isChargeableDate(LocalDate date) {
+        if (weekendCharge && (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY)) {
+            return true;
+        }
+        if (holidayCharge && (isIndependenceDay(date) || isLaborDay(date))) {
+            return true;
+        }
+        return !weekendCharge && !holidayCharge;
+    }
+
+    private boolean isIndependenceDay(LocalDate date) {
+        return date.getMonthValue() == 7 && date.getDayOfMonth() == 4;
+    }
+
+    private boolean isLaborDay(LocalDate date) {
+        return date.getMonthValue() == 9 && date.getDayOfWeek() == DayOfWeek.MONDAY && date.getDayOfMonth() <= 7;
+    }
+}
+
+class RentalAgreement {
+    private final String toolCode;
+    private final String toolType;
+    private final String brand;
+    private final int rentalDays;
+    private final LocalDate checkoutDate;
+    private final LocalDate dueDate;
+    private final double dailyRentalCharge;
+    private final int chargeDays;
+    private final double preDiscountCharge;
+    private final int discountPercent;
+    private final double discountAmount;
+    private final double finalCharge;
+
+    public RentalAgreement(String toolCode, String toolType, String brand, int rentalDays, LocalDate checkoutDate, LocalDate dueDate, double dailyRentalCharge, int chargeDays, double preDiscountCharge, int discountPercent, double discountAmount, double finalCharge) {
+        this.toolCode = toolCode;
+        this.toolType = toolType;
+        this.brand = brand;
+        this.rentalDays = rentalDays;
+        this.checkoutDate = checkoutDate;
+        this.dueDate = dueDate;
+        this.dailyRentalCharge = dailyRentalCharge;
+        this.chargeDays = chargeDays;
+        this.preDiscountCharge = preDiscountCharge;
+        this.discountPercent = discountPercent;
+        this.discountAmount = discountAmount;
+        this.finalCharge = finalCharge;
+    }
+
+    public void printRentalAgreement() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yy", Locale.ENGLISH);
+        System.out.println("Tool code: " + toolCode);
+        System.out.println("Tool type: " + toolType);
+        // Print other details similarly
+        System.out.printf("Final charge: $%.2f\n", finalCharge);
+    }
+}
+
+public class ToolRentalApplication {
+    public static void main(String[] args) {
+        // Test cases
+        Tool ladder = new Tool("LADW", "Ladder", "Werner", 1.99, true, false);
+        Tool chainsaw = new Tool("CHNS", "Chainsaw", "Stihl", 1.49, true, true);
+        Tool jackhammerDewalt = new Tool("JAKD", "Jackhammer", "DeWalt", 2.99, true, false);
+        Tool jackhammerRidgid = new Tool("JAKR", "Jackhammer", "Ridgid", 2.99, true, false);
+
+        try {
+            RentalAgreement agreement1 = ladder.checkout(3, 10, LocalDate.of(2020, 7, 2));
+            agreement1.printRentalAgreement();
+
+            RentalAgreement agreement2 = chainsaw.checkout(5, 25, LocalDate.of(2015, 7, 2));
+            agreement2.printRentalAgreement();
+
+            // Add more test cases here...
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+}
+
+
+
+import org.junit.Test;
+import java.time.LocalDate;
+import static org.junit.Assert.*;
+
+public class ToolRentalApplicationTest {
+
+    @Test
+    public void testValidCheckout() {
+        Tool ladder = new Tool("LADW", "Ladder", "Werner", 1.99, true, false);
+        LocalDate checkoutDate = LocalDate.of(2024, 4, 26);
+        RentalAgreement agreement = ladder.checkout(5, 10, checkoutDate);
+        assertEquals("LADW", agreement.getToolCode());
+        assertEquals("Ladder", agreement.getToolType());
+        assertEquals("Werner", agreement.getBrand());
+        assertEquals(5, agreement.getRentalDays());
+        assertEquals(checkoutDate, agreement.getCheckoutDate());
+        assertEquals(checkoutDate.plusDays(5), agreement.getDueDate());
+        assertEquals(1.99, agreement.getDailyRentalCharge(), 0.001);
+        assertEquals(5, agreement.getChargeDays());
+        assertEquals(9.95, agreement.getPreDiscountCharge(), 0.001);
+        assertEquals(10, agreement.getDiscountPercent());
+        assertEquals(0.995, agreement.getDiscountAmount(), 0.001);
+        assertEquals(8.955, agreement.getFinalCharge(), 0.001);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidRentalDays() {
+        Tool chainsaw = new Tool("CHNS", "Chainsaw", "Stihl", 1.49, true, true);
+        LocalDate checkoutDate = LocalDate.of(2024, 4, 26);
+        chainsaw.checkout(0, 10, checkoutDate);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidDiscountPercent() {
+        Tool jackhammerDewalt = new Tool("JAKD", "Jackhammer", "DeWalt", 2.99, true, false);
+        LocalDate checkoutDate = LocalDate.of(2024, 4, 26);
+        jackhammerDewalt.checkout(7, -10, checkoutDate);
+    }
+
+    // Add more test cases as needed...
+}
